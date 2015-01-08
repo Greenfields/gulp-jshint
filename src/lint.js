@@ -1,10 +1,19 @@
 var RcLoader = require('rcloader');
-var jshint = require('jshint').JSHINT;
+var lazyReq = require('lazy-req')(require);
+var jshint = lazyReq('jshint');
+var jsxhint = lazyReq('jshint-jsx');
 var jshintcli = require('jshint/src/cli');
-var minimatch = require('minimatch');
-var _ = require('lodash');
+var minimatch = require("minimatch");
+var _ = require("lodash");
 
 module.exports = function createLintFunction(userOpts) {
+  var linter;
+  if(userOpts && userOpts.jsx) {
+    linter = jsxhint().JSXHINT;
+    delete userOpts.jsx;
+  } else {
+    linter = jshint().JSHINT;
+  }
 
   var rcLoader = new RcLoader('.jshintrc', userOpts, {
     loader: function (path) {
@@ -17,13 +26,13 @@ module.exports = function createLintFunction(userOpts) {
   var reportErrors = function (file, out, cfg) {
     var filePath = (file.path || 'stdin');
 
-    out.results = jshint.errors.map(function (err) {
+    out.results = linter.errors.map(function (err) {
       if (!err) return;
       return { file: filePath, error: err };
     }).filter(Boolean);
 
     out.opt = cfg;
-    out.data = [jshint.data()];
+    out.data = [linter.data()];
     out.data[0].file = filePath;
   };
 
@@ -60,7 +69,7 @@ module.exports = function createLintFunction(userOpts) {
       var out = file.jshint || (file.jshint = {});
       var str = _.isString(out.extracted) ? out.extracted : file.contents.toString('utf8');
 
-      out.success = jshint(str, cfg, globals);
+      out.success = linter(str, cfg, globals);
       if (!out.success) reportErrors(file, out, cfg);
 
       return cb(null, file);
